@@ -104,7 +104,7 @@ class DeviceData:
             "measurement": type(self).__name__,
             "tags": tags,
             "time": int(
-                datetime.datetime.now(datetime.UTC)
+                datetime.datetime.now(datetime.timezone.utc)
                 .timestamp()
                 * 1e9
             ),

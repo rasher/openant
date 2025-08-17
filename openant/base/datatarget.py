@@ -9,7 +9,10 @@ from ..devices.utilities import auto_create_device, read_json
 from ..devices.common import DeviceData, AntPlusDevice
 from ..devices.fitness_equipment import FitnessEquipment, Workout
 
+
 class DataTarget(ABC):
+    shutting_down: bool = False
+
     @abstractmethod
     def __init__(self, args: argparse.Namespace):
         pass
@@ -22,16 +25,18 @@ class DataTarget(ABC):
     def close(self):
         pass
 
-    def run(self,
+    def run(
+        self,
         node: Node,
         devices: List[AntPlusDevice],
-        workouts: Optional[List[Workout]] = None):
+        workouts: Optional[List[Workout]] = None,
+    ):
         print(f"Starting device data importer for {devices}")
 
         def on_found(device):
             print(f"Device {device} found and receiving")
 
-            if type(device) == FitnessEquipment:
+            if isinstance(device, FitnessEquipment):
                 if workouts is not None:
                     device.start_workouts(workouts)
 
@@ -45,8 +50,9 @@ class DataTarget(ABC):
             print(f"Starting {devices}, press Ctrl-C to finish")
             node.start()
         except KeyboardInterrupt:
-            print(f"Closing ANT+ devices...")
+            print("Closing ANT+ devices...")
         finally:
+            self.shutting_down = True
             for dev in devices:
                 dev.close_channel()
 
@@ -116,26 +122,28 @@ class DataTarget(ABC):
                         except Exception as e:
                             raise ValueError(
                                 f"Failed to create device {dev} from {args.config} - is it a valid AntPlusDevice?"
-                            )
+                            ) from e
 
                     if "workouts" in config:
                         try:
                             workouts = [
-                                Workout.from_arrays(
-                                    x["powers"],
-                                    x["periods"],
-                                    cycles=x["cycles"],
-                                    loop=x["loop"],
-                                )
-                                if x["type"] == "arrays"
-                                else Workout.from_ramp(
-                                    start=x["start"],
-                                    stop=x["stop"],
-                                    step=x["step"],
-                                    period=x["period"],
-                                    peak=(x["peak"] if "peak" in x else None),
-                                    cycles=x["cycles"],
-                                    loop=x["loop"],
+                                (
+                                    Workout.from_arrays(
+                                        x["powers"],
+                                        x["periods"],
+                                        cycles=x["cycles"],
+                                        loop=x["loop"],
+                                    )
+                                    if x["type"] == "arrays"
+                                    else Workout.from_ramp(
+                                        start=x["start"],
+                                        stop=x["stop"],
+                                        step=x["step"],
+                                        period=x["period"],
+                                        peak=(x["peak"] if "peak" in x else None),
+                                        cycles=x["cycles"],
+                                        loop=x["loop"],
+                                    )
                                 )
                                 for x in config["workouts"]
                             ]
@@ -159,8 +167,4 @@ class DataTarget(ABC):
                 )
             )
 
-        target.run(
-            node=node,
-            devices=devices,
-            workouts=workouts
-        )
+        target.run(node=node, devices=devices, workouts=workouts)

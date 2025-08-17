@@ -2,12 +2,11 @@ import argparse
 import os
 import uuid
 
-from ..base.datatarget import DataTarget
-
-from ..devices.common import DeviceData, AntPlusDevice
-
 import influxdb_client as idb
 from influxdb_client.client.write_api import SYNCHRONOUS
+
+from ..base.datatarget import DataTarget
+from ..devices.common import DeviceData, AntPlusDevice
 
 
 class InfluxTarget(DataTarget):
@@ -85,7 +84,7 @@ def add_subparser(subparsers, name="influx"):
         description=("Capture DeviceData from an ANT+ device and import to InfluxDB"),
     )
     DataTarget.add_general_arguments(antinflux)
-    influx_args = antinflux.add_argument_group(f'{name} options')
+    influx_args = antinflux.add_argument_group(f"{name} options")
     influx_args.add_argument(
         "--url",
         default="http://localhost:8086",

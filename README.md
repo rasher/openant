@@ -11,6 +11,7 @@
 * Command-line tool `openant`:
     * `openant scan`: Scan for nearby devices and optionally print device data.
     * `openant influx`: Stream device data to InfluxDB instance.
+    * `openant mqtt`: Stream device data to MQTT server.
 
 A note on ANT/ANT-FS/ANT+: this module is for development and testing of devices and not intended to be used as a reference. Refer to the [thisisant.com website](https://www.thisisant.com/) for full ANT documentation and ANT+ device profiles. The intention of this module is for quick R&D of ANT capable devices. In case non-obvious, this module is not an official tool.
 
@@ -42,6 +43,24 @@ docker run --rm -p 8086:8086 -v $PWD:/var/lib/influxdb2 influxdb:latest
 ```
 
 Navigate to 'http://localhost:8086' and setup a user/org (default org used is 'my-org'). Then setup a bucket to use (default 'my-bucket') and a API access token (Load Data > API Tokens).
+
+## MQTT CLI Tool
+
+Requires install with [mqtt] (`pip install openant[mqtt]`) or paho-mqtt module installed manually and MQTT 
+server. See `openant mqtt --help` for the server setup.
+
+To setup an open MQTT server for testing, use the following in `mosquitto.conf`:
+
+```
+listener 1883 0.0.0.0
+allow_anonymous true
+```
+
+To start the server with docker:
+
+```
+docker run --rm -p 1883:1883 -v "$PWD/mosquitto.conf:/mosquitto/config/mosquitto.conf" eclipse-mosquitto:latest
+```
 
 # Module Usage
 
@@ -78,7 +97,37 @@ openant influx --verbose FitnessDevice
 # attach to power meter with device id 12345 and push to localhost InfluxDB
 openant influx --id 12345 --verbose PowerMeter
 # attach to devices in 'devices.json' - allows connection to multiple devices
-openant influx --config --verbose devices.json config
+openant influx --verbose --config devices.json config
+```
+
+## ANT+ to MQTT
+
+Stream DeviceData from a ANT+ device to an MQTT server. Useful for integration with a wide range of systems. See 
+`openant influx --help`. See the notes on installation for this tool. Refer to MQTT server documentation for the 
+required flags.
+
+### Changing publish behaviour
+
+Two flags control how data is published:
+
+The flag `--topic-per-field` instructs the application to publish data to individual topics for each data field (e.g.
+one for `heart_rate`, and another for `battery_percentage`). The default is to publish all received data as a single 
+JSON-encoded string.
+
+The flag `--device-topic` allows over-riding the topic used for posting a device's data. By default, data will be 
+posted to `openant/<DeviceType>/<DeviceId>` (or a child thereof, if `--topic-per-field` is set).
+
+### Example Usage
+
+```
+# attach to first trainer found and push data to localhost MQTT
+openant mqtt --verbose FitnessDevice
+# attach to power meter with device id 12345 and push to localhost MQTT
+openant mqtt --id 12345 --verbose PowerMeter
+# attach to devices in 'devices.json' - allows connection to multiple devices
+openant mqtt --verbose --config devices.json config
+# attach to devices in 'devices.json' and post a specific device's data to the topic my/heartrate
+openant mqtt --config devices.json --device-topic 120:54368:my/heartrate config
 ```
 
 # Supported ANT-FS Devices

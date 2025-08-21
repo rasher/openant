@@ -48,6 +48,7 @@ class DeviceType(Enum):
     Radar = 40
     Shifting = 34
     DropperSeatpost = 115
+    CoreTemp = 127
 
     @classmethod
     def _missing_(cls, _): # type: ignore

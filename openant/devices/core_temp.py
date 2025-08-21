@@ -14,22 +14,24 @@ class CoreTempDataQuality(Enum):
     Poor = 0
     Fair = 1
     Good = 2
-    Excelent = 3
+    Excellent = 3
 
     Unused = 0xFF
 
     @classmethod
     def _missing_(cls, _):
-        return PressureSensorAlarm.Unknown
+        return CoreTempDataQuality.Unused
 
 
 @dataclass
-class CoteTemperatureData(DeviceData):
+class CoreTemperatureData(DeviceData):
     """ANT+ core temp data"""
 
     quality: CoreTempDataQuality = None
-    skin_temp: float = field(default=0, metadata={"unit": "°C"})
-    core_temp: float = field(default=0, metadata={"unit": "°C"})
+    skin_temp: float = field(default=0.0, metadata={"unit": "°C"})
+    core_temp: float = field(default=0.0, metadata={"unit": "°C"})
+    heat_strain_index: float = field(default=0.0, metadata={"unit": "a.u."})
+    reserved: int = field(default=0, metadata={"unit": ""})
 
 
 class CoreTemperature(AntPlusDevice):
@@ -51,7 +53,7 @@ class CoreTemperature(AntPlusDevice):
 
         self._event_count = [0, 0]
 
-        self.data = {**self.data, "core_temp": CoteTemperatureData()}
+        self.data = {**self.data, "core_temp": CoreTemperatureData()}
 
     def on_data(self, data):
         page = data[0]
@@ -64,12 +66,32 @@ class CoreTemperature(AntPlusDevice):
 
         # core temp main page
         elif page == 0x01:
-            self._event_cout = data[1]
-            self.data["core_temp"].skin_temp = (
-                data[3] | ((data[4] & 0xF0) << 4)
-            ) * 0.05
-            self.data["core_temp"].core_temp = (
-                int.from_bytes(data[6:8], byteorder="little") * 0.01
-            )
+            self._event_count[0] = self._event_count[1]
+            self._event_count[1] = data[2]
+
+            heat_strain_index_value = data[1]
+            skin_temp_value = (data[3] | ((data[4] & 0xF0) << 4))
+            core_temp_value = int.from_bytes(data[6:8], byteorder="little")
+            reserved_value = int((data[5] << 4) | (data[4] & 0x0F))
+
+            if skin_temp_value != 0x800:
+                self.data["core_temp"].skin_temp = skin_temp_value * 0.05
+            else:
+                self.data["core_temp"].skin_temp = None
+
+            if core_temp_value != 0x8000:
+                self.data["core_temp"].core_temp = core_temp_value * 0.01
+            else:
+                self.data["core_temp"].core_temp = None
+
+            if heat_strain_index_value != 0xFF:
+                self.data["core_temp"].heat_strain_index = heat_strain_index_value * 0.1
+            else:
+                self.data["core_temp"].heat_strain_index = None
+
+            if reserved_value != 0x800:
+                self.data["core_temp"].reserved = reserved_value
+            else:
+                self.data["core_temp"].reserved = None
 
         self.on_device_data(page, "core_temp", self.data["core_temp"])

@@ -3,7 +3,7 @@ sys.path.append("..")
 
 from openant.easy.node import Node
 from openant.devices import ANTPLUS_NETWORK_KEY
-from openant.devices.core_temp import CoreTemperature, CoteTemperatureData
+from openant.devices.core_temp import CoreTemperature, CoreTemperatureData
 
 
 def main(device_id=0):
@@ -16,7 +16,7 @@ def main(device_id=0):
         print(f"Device {device} found and receiving")
 
     def on_device_data(page: int, page_name: str, data):
-        # if isinstance(data, CoteTemperatureData):
+        # if isinstance(data, CoreTemperatureData):
         print(f"Data: ", data)
 
     device.on_found = on_found

@@ -11,6 +11,8 @@ from . import dropper_seatpost
 from . import lev
 from . import bike_speed_cadence
 from . import environment
+from . import core_temp
+from . import bicycle_lights
 
 # standard ANT+ network key
 ANTPLUS_NETWORK_KEY = [0xB9, 0xA5, 0x21, 0xFB, 0xBD, 0x72, 0xC3, 0x45]
@@ -28,6 +30,8 @@ device_profiles = {
     common.DeviceType.BikeSpeed: bike_speed_cadence.BikeSpeed,
     common.DeviceType.BikeCadence: bike_speed_cadence.BikeCadence,
     common.DeviceType.BikeSpeedCadence: bike_speed_cadence.BikeSpeedCadence,
+    common.DeviceType.CoreTemp: core_temp.CoreTemperature,
+    common.DeviceType.BicycleLights: bicycle_lights.BicycleLights,
 }
 
 __all__ = [
@@ -41,4 +45,5 @@ __all__ = [
     "bike_speed_cadence",
     "core_temp",
     "environment",
+    "bicycle_lights",
 ]

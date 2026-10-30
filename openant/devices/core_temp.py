@@ -7,6 +7,16 @@ from dataclasses import dataclass, field
 from ..easy.node import Node
 from .common import DeviceData, AntPlusDevice, DeviceType, BatteryStatus
 
+# Since these are used as data values, they must be floats
+
+HEAT_STRAIN_INDEX_INVALID = float(0xFF)
+
+CORE_TEMP_INVALID = float(0x8000)
+
+SKIN_TEMP_INVALID = float(0x800)
+
+RESERVED_INVALID = float(0x800)
+
 _logger = logging.getLogger(__name__)
 
 
@@ -14,22 +24,26 @@ class CoreTempDataQuality(Enum):
     Poor = 0
     Fair = 1
     Good = 2
-    Excelent = 3
+    Excellent = 3
 
     Unused = 0xFF
 
     @classmethod
     def _missing_(cls, _):
-        return PressureSensorAlarm.Unknown
+        return CoreTempDataQuality.Unused
 
 
 @dataclass
-class CoteTemperatureData(DeviceData):
+class CoreTemperatureData(DeviceData):
     """ANT+ core temp data"""
 
-    quality: CoreTempDataQuality = None
-    skin_temp: float = field(default=0, metadata={"unit": "°C"})
-    core_temp: float = field(default=0, metadata={"unit": "°C"})
+    quality: CoreTempDataQuality = CoreTempDataQuality.Unused
+    skin_temp: float = field(default=SKIN_TEMP_INVALID, metadata={"unit": "°C"})
+    core_temp: float = field(default=CORE_TEMP_INVALID, metadata={"unit": "°C"})
+    heat_strain_index: float = field(
+        default=HEAT_STRAIN_INDEX_INVALID, metadata={"unit": "a.u."}
+    )
+    reserved: int = field(default=RESERVED_INVALID, metadata={"unit": ""})
 
 
 class CoreTemperature(AntPlusDevice):
@@ -51,7 +65,7 @@ class CoreTemperature(AntPlusDevice):
 
         self._event_count = [0, 0]
 
-        self.data = {**self.data, "core_temp": CoteTemperatureData()}
+        self.data = {**self.data, "core_temp": CoreTemperatureData()}
 
     def on_data(self, data):
         page = data[0]
@@ -64,12 +78,32 @@ class CoreTemperature(AntPlusDevice):
 
         # core temp main page
         elif page == 0x01:
-            self._event_cout = data[1]
-            self.data["core_temp"].skin_temp = (
-                data[3] | ((data[4] & 0xF0) << 4)
-            ) * 0.05
-            self.data["core_temp"].core_temp = (
-                int.from_bytes(data[6:8], byteorder="little") * 0.01
-            )
+            self._event_count[0] = self._event_count[1]
+            self._event_count[1] = data[2]
+
+            heat_strain_index_value = data[1]
+            skin_temp_value = data[3] | ((data[4] & 0xF0) << 4)
+            core_temp_value = int.from_bytes(data[6:8], byteorder="little")
+            reserved_value = int((data[5] << 4) | (data[4] & 0x0F))
+
+            if skin_temp_value == SKIN_TEMP_INVALID:
+                self.data["core_temp"].skin_temp = SKIN_TEMP_INVALID
+            else:
+                self.data["core_temp"].skin_temp = skin_temp_value * 0.05
+
+            if core_temp_value == CORE_TEMP_INVALID:
+                self.data["core_temp"].core_temp = CORE_TEMP_INVALID
+            else:
+                self.data["core_temp"].core_temp = core_temp_value * 0.01
+
+            if heat_strain_index_value == HEAT_STRAIN_INDEX_INVALID:
+                self.data["core_temp"].heat_strain_index = HEAT_STRAIN_INDEX_INVALID
+            else:
+                self.data["core_temp"].heat_strain_index = heat_strain_index_value * 0.1
+
+            if reserved_value == RESERVED_INVALID:
+                self.data["core_temp"].reserved = RESERVED_INVALID
+            else:
+                self.data["core_temp"].reserved = reserved_value
 
         self.on_device_data(page, "core_temp", self.data["core_temp"])

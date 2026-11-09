@@ -21,6 +21,7 @@ from typing import Optional, List
 from ..easy.channel import Channel
 from ..easy.exception import AntException
 from ..easy.node import Node
+from ..base.message import Message
 
 _logger = logging.getLogger(__name__)
 
@@ -342,6 +343,8 @@ class AntPlusDevice:
 
                 # set channel to this id
                 self.channel.close()
+                # Wait for channel to close
+                self.channel.wait_for_event([Message.Code.EVENT_CHANNEL_CLOSED])
                 self.channel.set_id(self.device_id, self.device_type, self.trans_type)
                 self.channel.open()
 

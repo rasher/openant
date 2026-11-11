@@ -1,5 +1,9 @@
 from openant.devices import ANTPLUS_NETWORK_KEY
-from openant.devices.radar import Radar, RadarData, RANGE_UNIT, ThreatLevel, PAGE_NAME_DEVICE_STATUS
+from openant.devices.radar import (
+    Radar, RadarData, RANGE_UNIT, ThreatLevel,
+    PAGE_ERROR_DESCRIPTION_NAME
+
+)
 from openant.easy.node import Node
 
 
@@ -12,23 +16,24 @@ def main(device_id: int = 0):
     def on_found():
         print(f"Device {device} found and receiving")
 
-    def on_device_data(page: int, page_name: str, data):
+    def on_device_data(page: int, page_name: str, data: RadarData):
         if isinstance(data, RadarData):
             data: RadarData = data
-            line = [" "] * 0b111111
-            for target in data.targets:
+            if page_name == PAGE_ERROR_DESCRIPTION_NAME:
+                print(data.error)
+            line = [" "] * (0b111111 + 1)
+            for target in data.active_targets:
                 range_units = int(target.range / RANGE_UNIT)
-                # if target.range_units == 0.0 or target.closing_speed == 0.0 or target.threat_level == ThreatLevel.NoThreat:
-                #    continue
+                if target.range == 0.0 or target.closing_speed == 0.0 or target.threat_level == ThreatLevel.NoThreat:
+                    continue
                 current = line[range_units]
-                if target.threat_level == ThreatLevel.NoThreat and current == ' ':
-                    line[range_units] = '.'
-                elif target.threat_level == ThreatLevel.VehicleApproach and current != '!':
+                if target.threat_level == ThreatLevel.VehicleApproach and current != '!':
                     line[range_units] = '#'
                 elif target.threat_level == ThreatLevel.VehicleFastApproach:
                     line[range_units] = '!'
             if data.inverted_clear_targets == 0:
-                line = ["-"] * 0b111111
+                pass
+                line = ["-"] * (0b111111 + 1)
             print("[%s]" % "".join(line))
 
     device.on_found = on_found

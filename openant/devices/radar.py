@@ -1,6 +1,6 @@
 import logging
+import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Optional
 
@@ -27,7 +27,7 @@ class AntPlusMessage:
         self.data = data
 
     def __iter__(self):
-        yield iter(self.data)
+        return iter(self.data)
 
     def __getitem__(self, item):
         return self.data[item]
@@ -107,6 +107,7 @@ class RadarErrorCode(Enum):
     def _missing_(cls, value: object) -> Any:
         return RadarErrorCode.Invalid
 
+
 @dataclass
 class RadarError:
     system_component_index: int
@@ -151,8 +152,8 @@ class RadarTarget:
                                                         self.threat_side)
 
 
-def received_recently(timestamp: datetime|None):
-    return timestamp is not None and datetime.now() - timestamp <= timedelta(seconds=2)
+def received_recently(timestamp: float|None):
+    return timestamp is not None and time.monotonic() - timestamp <= 2.0
 
 
 @dataclass
@@ -168,8 +169,8 @@ class RadarData(DeviceData):
     device_state: DeviceState = DeviceState.Broadcasting
     inverted_clear_targets: int = 1
     error: RadarError|None = None
-    error_received: datetime|None = None
-    radar_targets_received: datetime|None = None
+    error_received: float|None = None
+    radar_targets_received: float|None = None
     _targets_a: int = 1 # >1 when multiple target_a pages have been received since a target_b page was received
 
     def to_influx_json(self, tags: dict):
@@ -181,11 +182,11 @@ class RadarData(DeviceData):
                                    self.target5, self.target6, self.target7, self.target8]))
 
     def received_targets_a(self):
-        self.radar_targets_received = datetime.now()
+        self.radar_targets_received = time.monotonic()
         self._targets_a = min(0xFF, self._targets_a + 1)
 
     def received_targets_b(self):
-        self.radar_targets_received = datetime.now()
+        self.radar_targets_received = time.monotonic()
         self._targets_a = 0
 
     @property
@@ -239,14 +240,14 @@ class Radar(AntPlusDevice):
             name=name,
         )
 
-        self._event_count = [0, 0]
-
         self.data = {**self.data, "radar": RadarData(
             RadarTarget(), RadarTarget(), RadarTarget(), RadarTarget(),
             RadarTarget(), RadarTarget(), RadarTarget(), RadarTarget()
         )}
 
     def open_channel(self, extended=True, channel_type=None, ext_assign: Optional[int] = 0x00):
+        # This is here to set ext_assign to 0x00 rather than the default 0x01 (Background Scanning Enable).
+        # Gives the full ~8Hz updates (except duplicates, which are dropped in Ant._worker).
         _logger.debug("Opening channel extended=%s channel_type=%s ext_assign=%s", extended, channel_type, ext_assign)
         return super().open_channel(extended, channel_type, ext_assign)
 
@@ -276,7 +277,7 @@ class Radar(AntPlusDevice):
         elif page.page_number == PAGE_ERROR_DESCRIPTION:
             _logger.debug("Error description: %r", data)
             self.data["radar"].error = RadarError.from_message(page)
-            self.data["radar"].error_received = datetime.now()
+            self.data["radar"].error_received = time.monotonic()
             self.on_device_data(page.page_number, PAGE_ERROR_DESCRIPTION_NAME, self.data["radar"])
         elif page.page_number in (0x50, 0x51, 0x52):
             # Common pages handled centrally

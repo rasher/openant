@@ -127,3 +127,40 @@ class RadarTest(unittest.TestCase):
         self.assertEqual(0xF, error.system_component_index)
         self.assertEqual(RadarErrorLevel.Critical, error.error_level)
         self.assertEqual(0xFFFFFFFF, error.mfg_error)
+
+    def test_radar_data_to_json(self):
+        radar = TestRadar()
+        radar.on_data([PAGE_RADAR_TARGETS_A, 85, 0, 219, 71, 166, 119, 119])
+        radar.on_data([PAGE_RADAR_TARGETS_B, 1, 0, 45, 0, 0, 7, 0])
+        data = radar.data["radar"]
+        json = data.to_influx_json({'tag': 'tag_value'})
+        fields = json['fields']
+
+        self.assertEqual('tag_value', json['tags']['tag'])
+
+        self.assertEqual(84.375, fields['target_1_range'])
+        self.assertEqual(96.875, fields['target_2_range'])
+        self.assertEqual(112.5, fields['target_3_range'])
+        self.assertEqual(128.125, fields['target_4_range'])
+        self.assertEqual(140.625, fields['target_5_range'])
+        self.assertEqual(0.0, fields['target_6_range'])
+        self.assertEqual(0.0, fields['target_7_range'])
+        self.assertEqual(0.0, fields['target_8_range'])
+
+        self.assertEqual(21.28, fields['target_1_closing_speed'])
+        self.assertEqual(21.28, fields['target_2_closing_speed'])
+        self.assertEqual(21.28, fields['target_3_closing_speed'])
+        self.assertEqual(21.28, fields['target_4_closing_speed'])
+        self.assertEqual(21.28, fields['target_5_closing_speed'])
+        self.assertEqual(0.0, fields['target_6_closing_speed'])
+        self.assertEqual(0.0, fields['target_7_closing_speed'])
+        self.assertEqual(0.0, fields['target_8_closing_speed'])
+
+        self.assertEqual(1, fields['target_1_threat_level'])
+        self.assertEqual(1, fields['target_2_threat_level'])
+        self.assertEqual(1, fields['target_3_threat_level'])
+        self.assertEqual(1, fields['target_4_threat_level'])
+        self.assertEqual(1, fields['target_5_threat_level'])
+        self.assertEqual(0, fields['target_6_threat_level'])
+        self.assertEqual(0, fields['target_7_threat_level'])
+        self.assertEqual(0, fields['target_8_threat_level'])

@@ -174,7 +174,29 @@ class RadarData(DeviceData):
     _targets_a: int = 1 # >1 when multiple target_a pages have been received since a target_b page was received
 
     def to_influx_json(self, tags: dict):
-        influx_json = super().to_influx_json(self, tags)
+        influx_json = super().to_influx_json(tags)
+        # Remove _targets_a
+        del(influx_json['fields']['_targets_a'])
+        # Turn timestamps relative
+        now = time.monotonic()
+        for time_ in ['radar_targets_received', 'error_received']:
+            if time_ in influx_json['fields']:
+                influx_json['fields'][time_] = now - influx_json['fields'][time_]
+        for n in range(1, 9):
+            t: RadarTarget = getattr(self, 'target%d' % n)
+            influx_json['fields'].update({
+                'target_%d_range' % n: t.range,
+                'target_%d_closing_speed' % n: t.closing_speed,
+                'target_%d_threat_level' % n: t.threat_level.value,
+                'target_%d_threat_side' % n: t.threat_side.value,
+            })
+        if self.error:
+            influx_json['fields'].update({
+                'error_system_component_index': self.error.system_component_index,
+                'error_mfg_error': self.error.mfg_error,
+                'error_error_level': self.error.error_level.value,
+                'error_error_code': self.error.error_code.value,
+            })
         return influx_json
 
     def __str__(self) -> str:
